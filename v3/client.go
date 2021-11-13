@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 
@@ -28,16 +27,15 @@ var UseTest = false
 
 // Global enums
 const (
-	timestampKey  = "timestamp"
-	signatureKey  = "signature"
-	recvWindowKey = "recvWindow"
+	timestampKey = "timestamp"
+	signatureKey = "signature"
 )
 
 func currentTimestamp() int64 {
 	return FormatTimestamp(time.Now())
 }
 
-// FormatTimestamp formats a time into Unix timestamp in milliseconds, as requested by Binance.
+// FormatTimestamp formats a time into Unix timestamp in milliseconds
 func FormatTimestamp(t time.Time) int64 {
 	return t.UnixNano() / int64(time.Millisecond)
 }
@@ -60,6 +58,7 @@ func NewClient(apiKey, secretKey string) *Client {
 		BaseURL:    getAPIEndpoint(),
 		UserAgent:  "Bitso-golang-api",
 		HTTPClient: http.DefaultClient,
+		Debug:      true,
 		Logger:     log.New(os.Stderr, "Bitso-golang ", log.LstdFlags),
 	}
 }
@@ -96,12 +95,7 @@ func (c *Client) parseRequest(r *request, opts ...RequestOption) (err error) {
 	}
 
 	fullURL := fmt.Sprintf("%s%s", c.BaseURL, r.endpoint)
-	if r.recvWindow > 0 {
-		r.setParam(recvWindowKey, r.recvWindow)
-	}
-	if r.secType == secTypeSigned {
-		r.setParam(timestampKey, currentTimestamp()-c.TimeOffset)
-	}
+
 	queryString := r.query.Encode()
 	body := &bytes.Buffer{}
 	bodyString := r.form.Encode()
@@ -113,25 +107,30 @@ func (c *Client) parseRequest(r *request, opts ...RequestOption) (err error) {
 		header.Set("Content-Type", "application/x-www-form-urlencoded")
 		body = bytes.NewBufferString(bodyString)
 	}
-	if r.secType == secTypeAPIKey || r.secType == secTypeSigned {
-		header.Set("X-MBX-APIKEY", c.APIKey)
-	}
 
 	if r.secType == secTypeSigned {
-		raw := fmt.Sprintf("%s%s", queryString, bodyString)
+
+		nonce := currentTimestamp() + currentTimestamp()
+
+		// Bitso API Secret on the concatenation of nonce + HTTP method + requestPath + JSON payload
+		raw := fmt.Sprintf("%#v%s%s%s", nonce, r.method, r.endpoint, bodyString)
+
 		mac := hmac.New(sha256.New, []byte(c.SecretKey))
 		_, err = mac.Write([]byte(raw))
 		if err != nil {
 			return err
 		}
-		v := url.Values{}
-		v.Set(signatureKey, fmt.Sprintf("%x", (mac.Sum(nil))))
-		if queryString == "" {
-			queryString = v.Encode()
-		} else {
-			queryString = fmt.Sprintf("%s&%s", queryString, v.Encode())
-		}
+
+		header.Set("Authorization", fmt.Sprintf("Bitso %s:%#v:%x", c.APIKey, nonce, (mac.Sum(nil))))
+
 	}
+
+	//if queryString == "" {
+	//	queryString = v.Encode()
+	//} else {
+	//	queryString = fmt.Sprintf("%s&%s", queryString, v.Encode())
+	//}
+
 	if queryString != "" {
 		fullURL = fmt.Sprintf("%s?%s", fullURL, queryString)
 	}
@@ -191,6 +190,6 @@ func (c *Client) callAPI(ctx context.Context, r *request, opts ...RequestOption)
 }
 
 // NewGetAccountService init getting account service
-func (c *Client) NewGetAccountService() *GetAccountService {
-	return &GetAccountService{c: c}
+func (c *Client) NewGetAccountStatusService() *GetAccountStatusService {
+	return &GetAccountStatusService{c: c}
 }

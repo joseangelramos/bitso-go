@@ -17,15 +17,14 @@ const (
 
 // request define an API request
 type request struct {
-	method     string
-	endpoint   string
-	query      url.Values
-	form       url.Values
-	recvWindow int64
-	secType    secType
-	header     http.Header
-	body       io.Reader
-	fullURL    string
+	method   string
+	endpoint string
+	query    url.Values
+	form     url.Values
+	secType  secType
+	header   http.Header
+	body     io.Reader
+	fullURL  string
 }
 
 // setParam set param with key/value to query string

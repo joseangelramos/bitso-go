@@ -6,13 +6,13 @@ import (
 	"net/http"
 )
 
-// GetAccountService get account info
-type GetAccountService struct {
+// GetAccountStatusService get account info concerning the user's account status
+type GetAccountStatusService struct {
 	c *Client
 }
 
 // Do send request
-func (s *GetAccountService) Do(ctx context.Context, opts ...RequestOption) (res *AccountStatus, err error) {
+func (s *GetAccountStatusService) Do(ctx context.Context, opts ...RequestOption) (res *AccountStatus, err error) {
 	r := &request{
 		method:   http.MethodGet,
 		endpoint: "/api/v3/account_status",
@@ -30,8 +30,14 @@ func (s *GetAccountService) Do(ctx context.Context, opts ...RequestOption) (res 
 	return res, nil
 }
 
-// Account define account info
+// Information concerning the user's account status, documents uploaded, and transaction limits.
 type AccountStatus struct {
+	Success bool    `json:"success"`
+	Payload Payload `json:"payload"`
+}
+
+// Payload Account Status
+type Payload struct {
 	ClientId                  string `json:"client_id"`
 	Status                    string `json:"status"`
 	DailyLimit                string `json:"daily_limit"`
